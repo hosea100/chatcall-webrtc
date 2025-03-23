@@ -8,14 +8,16 @@ import { Mic, MicOff, VideoIcon, VideoOff, PhoneOff } from "lucide-react"
 type VideoCallProps = {
   roomId: string
   username: string
+  onCallEnded?: () => void // Add callback for parent component
 }
 
-export function VideoCall({ roomId, username }: VideoCallProps) {
+export function VideoCall({ roomId, username, onCallEnded }: VideoCallProps) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
-  const [, setIsConnected] = useState(false)
+  const [isConnected, setIsConnected] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [isVideoOff, setIsVideoOff] = useState(false)
+  const [callActive, setCallActive] = useState(true) // New state to track if call is active
 
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
@@ -23,13 +25,23 @@ export function VideoCall({ roomId, username }: VideoCallProps) {
 
   // Initialize WebRTC
   useEffect(() => {
+    let mounted = true;
+    
     const initWebRTC = async () => {
+      if (!callActive) return; // Don't initialize if call isn't active
+      
       try {
         // Get local media stream
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
         })
+
+        if (!mounted) {
+          // Clean up if component unmounted during async operation
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
 
         setLocalStream(stream)
 
@@ -75,19 +87,43 @@ export function VideoCall({ roomId, username }: VideoCallProps) {
       }
     }
 
-    initWebRTC()
+    if (callActive) {
+      initWebRTC()
+    }
 
     // Cleanup
     return () => {
-      if (localStream) {
-        localStream.getTracks().forEach((track) => track.stop())
-      }
-
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close()
-      }
+      mounted = false;
+      cleanupMedia();
     }
-  }, [localStream, roomId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, callActive])
+
+  // Proper cleanup function that can be called from multiple places
+  const cleanupMedia = () => {
+    // Stop all tracks in local stream
+    if (localStream) {
+      localStream.getTracks().forEach((track) => {
+        track.stop()
+        console.log("Track stopped:", track.kind)
+      })
+    }
+
+    // Clear video elements
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null
+    }
+    
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null
+    }
+
+    // Close peer connection
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close()
+      peerConnectionRef.current = null
+    }
+  }
 
   const toggleMute = () => {
     if (localStream) {
@@ -110,17 +146,29 @@ export function VideoCall({ roomId, username }: VideoCallProps) {
   }
 
   const endCall = () => {
-    if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop())
-    }
-
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close()
-    }
-
+    // Clean up all media resources
+    cleanupMedia();
+    
+    // Update state
     setLocalStream(null)
     setRemoteStream(null)
     setIsConnected(false)
+    setCallActive(false)
+    
+    // Notify parent component if callback provided
+    if (onCallEnded) {
+      onCallEnded()
+    }
+  }
+
+  // If call is not active, render nothing or a message
+  if (!callActive) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <p className="text-muted-foreground mb-4">Call ended</p>
+        <Button onClick={() => setCallActive(true)}>Start New Call</Button>
+      </div>
+    )
   }
 
   return (
