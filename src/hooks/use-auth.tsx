@@ -1,84 +1,47 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  type ReactNode,
-} from "react";
-
-type User = {
-  name: string;
-  room: string;
-};
+import { createContext, useContext, type ReactNode } from "react";
+import { useAppDispatch, useAppSelector } from "@/lib/redux/hooks";
+import { loginUser, logout } from "@/lib/redux/slices/authSlice";
+import { cleanupMedia } from "@/helpers/media-helpers";
+import { User } from "@/types/user";
 
 type AuthContextType = {
   token: string | null;
   user: User | null;
   login: (name: string, room: string) => Promise<void>;
   logout: () => void;
+  status: "idle" | "loading" | "succeeded" | "failed";
+  error: string | null;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const dispatch = useAppDispatch();
+  const { token, user, status, error } = useAppSelector((state) => state.auth);
 
-  useEffect(() => {
-    // Load token and user from localStorage on initial load
-    const storedToken = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
-
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
-
-  const login = async (name: string, room: string) => {
-    try {
-      const response = await fetch(
-        "https://mfkwnj6b-4000.asse.devtunnels.ms/api/v1/auth/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ name, room }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Login failed");
-      }
-
-      const data = await response.json();
-      const newToken = data.token;
-      const newUser = { name, room };
-
-      // Save to state and localStorage
-      setToken(newToken);
-      setUser(newUser);
-      localStorage.setItem("token", newToken);
-      localStorage.setItem("user", JSON.stringify(newUser));
-    } catch (error) {
-      console.error("Login error:", error);
-      throw error;
-    }
+  const handleLogin = async (name: string, room: string) => {
+    await dispatch(loginUser({ name, room })).unwrap();
   };
 
-  const logout = () => {
-    // Clear state and localStorage
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  const handleLogout = () => {
+    // Clean up media resources before logging out
+    cleanupMedia();
+    dispatch(logout());
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        token,
+        user,
+        login: handleLogin,
+        logout: handleLogout,
+        status,
+        error,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

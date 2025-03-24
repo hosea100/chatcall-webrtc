@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -28,8 +28,10 @@ const formSchema = z.object({
 
 export function LoginForm() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, status, error: authError } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -39,14 +41,39 @@ export function LoginForm() {
     },
   });
 
+  // Effect to handle navigation after successful login
+  useEffect(() => {
+    if (status === "succeeded" && pendingNavigation) {
+      router.push(pendingNavigation);
+      setPendingNavigation(null);
+    } else if (status === "failed" && authError) {
+      setError(authError);
+      setIsLoading(false);
+      setPendingNavigation(null);
+    }
+  }, [status, pendingNavigation, authError, router]);
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
+    setError(null);
+
     try {
+      // Store the destination URL we want to navigate to
+      setPendingNavigation(`/room/${encodeURIComponent(values.room)}`);
+      
+      // Dispatch login action
       await login(values.name, values.room);
-      router.push(`/room/${values.room}`);
+      
+      // Don't navigate here - let the useEffect handle it
+      // This way we ensure the Redux state is updated first
     } catch (error) {
       console.error("Login failed:", error);
-    } finally {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred. Please try again."
+      );
+      setPendingNavigation(null);
       setIsLoading(false);
     }
   }
@@ -80,6 +107,9 @@ export function LoginForm() {
             </FormItem>
           )}
         />
+
+        {error && <div className="text-destructive text-sm">{error}</div>}
+
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? "Joining..." : "Join Room"}
         </Button>
