@@ -1,4 +1,4 @@
 export type User = {
-  online: boolean
-  socketId: string
-}
+  online: boolean;
+  socketId: string;
+};

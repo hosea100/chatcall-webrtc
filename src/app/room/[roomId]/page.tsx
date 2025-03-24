@@ -1,37 +1,46 @@
-"use client"
+"use client";
 
-import { useEffect, useState, use } from "react"
-import { useRouter } from "next/navigation"
-import { ChatRoom } from "@/components/chat-room"
-import { VideoCall } from "@/components/video-call"
-import { UserList } from "@/components/user-list"
-import { ModeToggle } from "@/components/mode-toggle"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { useWebSocket } from "@/hooks/use-websocket"
-import { useAuth } from "@/hooks/use-auth"
-import { MessageSquare, Video, Users, LogOut } from "lucide-react"
+import { useEffect, useState, use } from "react";
+import { useRouter } from "next/navigation";
+import { ChatRoom } from "@/components/chat-room";
+import { VideoCall } from "@/components/video-call";
+import { UserList } from "@/components/user-list";
+import { ModeToggle } from "@/components/mode-toggle";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { useWebSocket } from "@/hooks/use-websocket";
+import { useAuth } from "@/hooks/use-auth";
+import { MessageSquare, Video, Users, LogOut } from "lucide-react";
+import { cleanupMedia } from "@/helpers/media-helpers";
 
-export default function RoomPage({ params }: { params: Promise<{ roomId: string }> }) {
-  const { roomId } = use(params)
-  const router = useRouter()
-  const { token, user, logout } = useAuth()
-  const { messages, sendMessage, roomUsers } = useWebSocket(token)
-  const [activeTab, setActiveTab] = useState("chat")
+export default function RoomPage({
+  params,
+}: {
+  params: Promise<{ roomId: string }>;
+}) {
+  const { roomId } = use(params);
+  const router = useRouter();
+  const { token, user, logout } = useAuth();
+  const { messages, sendMessage, roomUsers } = useWebSocket(token);
+  const [activeTab, setActiveTab] = useState("chat");
 
   useEffect(() => {
     if (!token) {
-      router.push("/")
+      router.push("/");
     }
-  }, [token, router])
+  }, [token, router]);
 
   const handleLogout = () => {
-    logout()
-    router.push("/")
-  }
+    // Clean up media resources before logging out
+    cleanupMedia();
+
+    // Then logout and redirect
+    logout();
+    router.push("/");
+  };
 
   if (!token || !user) {
-    return null
+    return null;
   }
 
   return (
@@ -41,7 +50,8 @@ export default function RoomPage({ params }: { params: Promise<{ roomId: string 
           <h1 className="text-xl font-bold text-foreground">Room: {roomId}</h1>
           <div className="flex items-center gap-4">
             <span className="text-muted-foreground">
-              Logged in as <span className="font-medium text-foreground">{user.name}</span>
+              Logged in as{" "}
+              <span className="font-medium text-foreground">{user.name}</span>
             </span>
             <ModeToggle />
             <Button variant="destructive" size="sm" onClick={handleLogout}>
@@ -53,7 +63,11 @@ export default function RoomPage({ params }: { params: Promise<{ roomId: string 
       </header>
 
       <main className="flex-1 container mx-auto p-4 overflow-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="h-full flex flex-col"
+        >
           <div className="flex justify-between items-center mb-4">
             <TabsList>
               <TabsTrigger value="chat">
@@ -73,7 +87,11 @@ export default function RoomPage({ params }: { params: Promise<{ roomId: string 
 
           <div className="flex-1 overflow-hidden">
             <TabsContent value="chat" className="h-full">
-              <ChatRoom messages={messages} sendMessage={sendMessage} currentUser={user.name} />
+              <ChatRoom
+                messages={messages}
+                sendMessage={sendMessage}
+                currentUser={user.name}
+              />
             </TabsContent>
             <TabsContent value="video" className="h-full">
               <VideoCall roomId={roomId} username={user.name} />
@@ -85,5 +103,5 @@ export default function RoomPage({ params }: { params: Promise<{ roomId: string 
         </Tabs>
       </main>
     </div>
-  )
+  );
 }
