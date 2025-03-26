@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { ChatRoom } from "@/components/chat-room";
 import { VideoCall } from "@/components/video-call";
 import { UserList } from "@/components/user-list";
@@ -10,19 +10,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useAuth } from "@/hooks/use-auth";
+import { useAppSelector } from "@/lib/redux/hooks";
 import { MessageSquare, Video, Users, LogOut } from "lucide-react";
 import { cleanupMedia } from "@/helpers/media-helpers";
 
-export default function RoomPage({
-  params,
-}: {
-  params: Promise<{ roomId: string }>;
-}) {
-  const { roomId } = use(params);
+export default function RoomPage() {
+  const params = useParams();
+  const roomId = params.roomId as string;
   const router = useRouter();
   const { token, user, logout } = useAuth();
-  const { messages, sendMessage, roomUsers } = useWebSocket(token);
+  const { sendMessage } = useWebSocket(token);
   const [activeTab, setActiveTab] = useState("chat");
+
+  // Get data from Redux store
+  const messages = useAppSelector((state) => state.chat.messages);
+  const roomUsers = useAppSelector((state) => state.users.roomUsers);
 
   useEffect(() => {
     if (!token) {

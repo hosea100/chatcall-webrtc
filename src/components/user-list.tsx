@@ -11,8 +11,8 @@ type UserListProps = {
 
 export function UserList({ users }: UserListProps) {
   const userArray = Object.entries(users).map(([name, data]) => ({
-    name,
     ...data,
+    name,
   }));
 
   return (
