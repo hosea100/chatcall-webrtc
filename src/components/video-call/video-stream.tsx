@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
-import { VideoOff } from "lucide-react";
+import { VideoOff, Video } from "lucide-react";
 
 interface VideoStreamProps {
   stream: MediaStream | null;
@@ -22,12 +22,6 @@ export function VideoStream({
   showPlayButton = false,
 }: VideoStreamProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  console.log("[WebRTC] video stream:", stream, {
-    username,
-    isLocal,
-    isVideoOff,
-  });
-  console.log("Video tracks:", stream?.getVideoTracks());
 
   useEffect(() => {
     if (stream && videoRef.current) {
@@ -60,7 +54,7 @@ export function VideoStream({
           {showPlayButton && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
               <div className="flex flex-col items-center">
-                <VideoOff className="h-16 w-16 text-white mb-2" />
+                <Video className="h-16 w-16 text-white mb-2" />
                 <span className="text-white text-center">
                   Click to play video
                 </span>
